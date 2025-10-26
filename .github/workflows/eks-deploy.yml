@@ -1,0 +1,77 @@
+name: EKS Deploy
+
+on:
+  # push:
+  #   branches:
+  #     - main
+
+  workflow_dispatch:    
+
+jobs:
+  terraform:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+    outputs:
+      kubeconfig: ${{ steps.kubeconfig.outputs.kubeconfig }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply -auto-approve
+
+      - name: Generate kubeconfig
+        id: kubeconfig
+        run: |
+          echo "${{ steps.terraform.outputs.kubeconfig }}" > kubeconfig.yaml
+          echo "kubeconfig=$(cat kubeconfig.yaml)" >> $GITHUB_OUTPUT
+
+  deploy-argocd:
+    name: Deploy ArgoCD
+    needs: terraform
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFIG: ${{ needs.terraform.outputs.kubeconfig }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup kubectl
+        uses: actions/setup-kubectl@v3
+        with:
+          version: 'v1.28.2'
+
+      - name: Deploy ArgoCD
+        run: |
+          kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+
+# Important Notes:
+
+#         Store AWS credentials in GitHub Secrets: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+
+#         Terraform state should ideally use remote backend (S3 + DynamoDB) for production.
+
+#         Kubeconfig is generated from Terraform outputs, allowing GitHub Actions to deploy ArgoCD.
+
+#         After ArgoCD is deployed, you can use it to manage all cluster workloads via GitOps.

@@ -1,0 +1,18 @@
+production-ready Terraform configuration for AWS EKS:
+####################################################
+
+This setup will include:
+
+            1- VPC with public & private subnets
+
+            2- NAT Gateways for internet access from private subnets
+
+            3- Security groups
+
+            4- IAM roles for cluster and nodes
+
+            5- EKS cluster with managed node groups
+
+            6- Default and recommended add-ons (vpc-cni, kube-proxy, CoreDNS, AWS LB Controller)
+
+            7- Cluster Autoscaler integration
