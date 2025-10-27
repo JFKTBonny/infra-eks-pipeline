@@ -16,3 +16,5 @@ This setup will include:
             6- Default and recommended add-ons (vpc-cni, kube-proxy, CoreDNS, AWS LB Controller)
 
             7- Cluster Autoscaler integration
+
+**** create s3 command:  aws s3api create-bucket --bucket my-terraform-state-prod --region us-east-1            

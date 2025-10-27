@@ -58,6 +58,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Install dependencies
+        run: bash scripts/check_install_tools.sh    
+
       - name: Terraform Init (for cleanup)
         run: |
           terraform init \
