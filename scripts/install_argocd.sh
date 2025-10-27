@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ARGOCD_NS="argocd"
-PORT=32000  # NodePort for local access
+LOCAL_PORT=8080  # Local port for port-forward
 
 # Create namespace (ignore error if exists)
 kubectl create namespace "$ARGOCD_NS" || true
@@ -11,9 +11,6 @@ kubectl create namespace "$ARGOCD_NS" || true
 kubectl apply -k "https://github.com/argoproj/argo-cd/manifests/crds?ref=stable"
 kubectl apply -n "$ARGOCD_NS" -f "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/namespace-install.yaml"
 
-# Patch the argocd-server service to NodePort
-kubectl -n "$ARGOCD_NS" patch svc argocd-server -p '{"spec":{"type":"NodePort"}}'
-
 # Wait for argocd-server deployment to be ready
 echo "⏳ Waiting for argocd-server to be ready..."
 kubectl -n "$ARGOCD_NS" rollout status deployment argocd-server
@@ -21,17 +18,24 @@ kubectl -n "$ARGOCD_NS" rollout status deployment argocd-server
 # Wait until the initial admin secret exists
 echo "⏳ Waiting for argocd-initial-admin-secret..."
 until kubectl -n "$ARGOCD_NS" get secret argocd-initial-admin-secret >/dev/null 2>&1; do
-  sleep 10
+  sleep 5
 done
-
-# Fetch NodePort and Node IP
-NODE_PORT=$(kubectl -n "$ARGOCD_NS" get svc argocd-server -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
-NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
 
 # Fetch ArgoCD initial admin password
 ARGOCD_PASS=$(kubectl -n "$ARGOCD_NS" get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode)
 
-echo "✅ ArgoCD installed"
-echo "URL: https://$NODE_IP:$NODE_PORT"
+# Start port-forward in the background
+echo "⏳ Starting port-forward from localhost:$LOCAL_PORT to argocd-server:443..."
+kubectl -n "$ARGOCD_NS" port-forward svc/argocd-server "$LOCAL_PORT":443 >/dev/null 2>&1 &
+
+PORT_FORWARD_PID=$!
+trap "echo 'Stopping port-forward'; kill $PORT_FORWARD_PID" EXIT
+
+echo "✅ ArgoCD installed and accessible via port-forward"
+echo "URL: https://localhost:$LOCAL_PORT"
 echo "Username: admin"
 echo "Password: $ARGOCD_PASS"
+echo ""
+echo "Port-forward will remain active while this script is running."
+echo "Press Ctrl+C to stop the port-forward when done."
+wait $PORT_FORWARD_PID
