@@ -26,7 +26,8 @@ jobs:
 
       - name: Terraform Init (for cleanup)
         working-directory: ./terraform
-        run: terraform init \
+        run: |
+          terraform init \
             -backend-config="bucket=bonny-terraform-state-prod" \
             -backend-config="key=eks/terraform.tfstate" \
             -backend-config="region=${{ env.AWS_REGION }}" \
