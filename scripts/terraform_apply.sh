@@ -4,7 +4,7 @@ set -euo pipefail
 log() { echo "[TF] $*"; }
 
 log "Initializing Terraform..."
-cd eks && terraform init -input=false -no-color
+cd terraform &&  terraform init -input=false -no-color
 
 log "Planning..."
 terraform plan -out=tfplan -input=false -no-color || true
